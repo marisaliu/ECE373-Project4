@@ -359,7 +359,7 @@ void* mm_malloc (size_t size) {
   BlockInfo * ptrFreeBlock = NULL;
   size_t blockSize;
   size_t precedingBlockUseTag;
-
+  BlockInfo firstBlock;
   // Zero-size requests get NULL.
   if (size == 0) {
     return NULL;
@@ -381,7 +381,15 @@ void* mm_malloc (size_t size) {
   // Implement mm_malloc.  You can change or remove any of the above
   // code.  It is included as a suggestion of where to start.
   // You will want to replace this return statement...
-  return NULL; 
+  if((ptrFreeBlock = searchFreeList(reqSize)) == NULL){
+    requestMoreSpace(reqSize);
+    freeBlock = searchFreeList(reqSize);
+  }
+  removeFreeBlock(prtFreeBlock);
+  firstBlock.sizeAndTags =	//use bitwise functions to mask the correcty bits for size require for entire space and the 1 bit for space used or not
+  firstBlock.next = 	//take the current address and go to the next address using pointer arithmatic (probably)
+  firstBlock.prev =	//take current address and go backwards to find the boundary tag of the previous and then use that to find the address of the beginning of the previous
+  return prtFreeBlock; 
 }
 
 /* Free the block referenced by ptr. */
