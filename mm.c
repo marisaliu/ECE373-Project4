@@ -357,9 +357,9 @@ int mm_init () {
 void* mm_malloc (size_t size) {
   size_t reqSize;
   BlockInfo * ptrFreeBlock = NULL;
+  BlockInfo * secondBlock = NULL;
   size_t blockSize;
   size_t precedingBlockUseTag;
-  BlockInfo firstBlock;
   // Zero-size requests get NULL.
   if (size == 0) {
     return NULL;
@@ -383,13 +383,25 @@ void* mm_malloc (size_t size) {
   // You will want to replace this return statement...
   if((ptrFreeBlock = searchFreeList(reqSize)) == NULL){
     requestMoreSpace(reqSize);
-    freeBlock = searchFreeList(reqSize);
+    ptrFreeBlock = searchFreeList(reqSize);
   }
-  removeFreeBlock(prtFreeBlock);
-  firstBlock.sizeAndTags =	//use bitwise functions to mask the correcty bits for size require for entire space and the 1 bit for space used or not
-  firstBlock.next = 	//take the current address and go to the next address using pointer arithmatic (probably)
-  firstBlock.prev =	//take current address and go backwards to find the boundary tag of the previous and then use that to find the address of the beginning of the previous
-  return prtFreeBlock; 
+ // removeFreeBlock(ptrFreeBlock);
+  blockSize = SIZE(ptrFreeBlock->sizeAndTags); 
+  precedingBlockUseTag = ptrFreeBlock->sizeAndTags & 0x0002;
+  //if the size got is larger than the required size -> break up block into 2 blocks
+  if(blockSize > reqSize){
+    secondBlock = UNSCALED_POINTER_ADD(&ptrFreeBlock, reqSize);	//starting point of 2nd block
+    ptrFreeBlock->sizeAndTags = reqSize | 0x0001;		//change the size and used tag
+    ptrFreeBlock->sizeAndTags |= precedingBlockUseTag;		//preserve preceding used tag
+    secondBlock->sizeAndTags = (blockSize - reqSize) | 0x0002;	//set header of 2nd block to correct size and preceding used tag
+    insertFreeBlock(secondBlock);
+  }
+  else if(blockSize == reqSize){
+    ptrFreeBlock->sizeAndTags = reqSize | 0x0001;		//set the size and used tag
+    ptrFreeBlock->sizeAndTags |= precedingBlockUseTag; 		//preserve preceding used tag
+  }
+  removeFreeBlock(ptrFreeBlock);
+  return ptrFreeBlock;
 }
 
 /* Free the block referenced by ptr. */
@@ -397,10 +409,16 @@ void mm_free (void *ptr) {
   size_t payloadSize;
   BlockInfo * blockInfo;
   BlockInfo * followingBlock;
-
-  // Implement mm_free.  You can change or remove the declaraions
-  // above.  They are included as minor hints.
-
+  BlockInfo * footer;
+  blockInfo->sizeAndTags = SIZE(ptr->sizeAndTags);	//set header size
+  blockInfo->sizeAndTags &= 0xFFFE;			//set header used bit
+  footer = UNSCALED_POINTER_ADD(&ptr, UNSCALED_POINTER_SUB(SIZE(blockInfo->sizeAndTags),WORD_SIZE));	//CHECK TO SEE IF BLOCKINFO CUTS INTO NEXT MEMORY BLOCK LATER
+  footer->sizeAndTags = SIZE(ptr->sizeAndTags);	//set boundary tag size
+  footer->sizeAndTags &= 0xFFFE;		//set boundary tag used bit
+  followingBlock = UNSCALED_POINTER_ADD(&ptr, SIZE(ptr->sizeAndTags));	//set following blocks preceding used bit to 0
+  followingBlock->sizeAndTags &= 0xFFFD;
+  insertFreeBlock(blockInfo);
+  coalesceFreeBlock(blockInfo);
 }
 
 
