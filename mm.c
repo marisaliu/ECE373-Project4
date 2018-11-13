@@ -357,8 +357,6 @@ int mm_init () {
 /////////////////////////////////////////////////////////////////////////////////////
 void* mm_malloc (size_t size) {
   size_t reqSize;
-  printf("START OF MALLOC!\n");
-  examine_heap();
   BlockInfo * ptrFreeBlock = NULL;
   BlockInfo * secondBlock = NULL;
   size_t blockSize;
@@ -388,26 +386,29 @@ void* mm_malloc (size_t size) {
   }
 
   blockSize = SIZE(ptrFreeBlock->sizeAndTags); 
-  precedingBlockUseTag = ptrFreeBlock->sizeAndTags & 0x0002;
+  precedingBlockUseTag = ptrFreeBlock->sizeAndTags & TAG_PRECEDING_USED;
+  if(precedingBlockUseTag) ptrFreeBlock->sizeAndTags = reqSize | (TAG_PRECEDING_USED + TAG_USED);
+  else{ ptrFreeBlock->sizeAndTags = reqSize | TAG_USED;}
+  
   //if the size got is larger than the required size -> break up block into 2 blocks
 
-  if(blockSize > reqSize){
+  if(blockSize - reqSize >=MIN_BLOCK_SIZE){
     secondBlock = UNSCALED_POINTER_ADD(ptrFreeBlock, reqSize);	//starting point of 2nd block
-    ptrFreeBlock->sizeAndTags = reqSize |TAG_USED | precedingBlockUseTag;		//change the size and used tag
     secondBlock->sizeAndTags = (blockSize - reqSize) | TAG_PRECEDING_USED;	//set header of 2nd block to correct size and preceding used tag
     secondBlock->sizeAndTags &= ~0 << 1;
-    BlockInfo * footer = UNSCALED_POINTER_ADD(secondBlock, blockSize - reqSize - WORD_SIZE);
-    footer->sizeAndTags = secondBlock->sizeAndTags;
+   // BlockInfo * footer = UNSCALED_POINTER_ADD(secondBlock, blockSize - reqSize - WORD_SIZE);
+   // footer->sizeAndTags = secondBlock->sizeAndTags;
+   *((size_t*) UNSCALED_POINTER_ADD(ptrFreeBlock,blockSize)) |= TAG_PRECEDING_USED;
     insertFreeBlock(secondBlock);
   }
   else{
-    ptrFreeBlock->sizeAndTags = reqSize | TAG_USED | TAG_PRECEDING_USED;
     BlockInfo * nextBlock = UNSCALED_POINTER_ADD(ptrFreeBlock, blockSize);
     nextBlock->sizeAndTags |= TAG_PRECEDING_USED;		//set the size and used tag
   }
   removeFreeBlock(ptrFreeBlock);
-  printf("END OF MALLOC!\n");
-  examine_heap();
+ // printf("END OF MALLOC!\n");
+//  examine_heap();
+  if(ptrFreeBlock == NULL) return NULL;
   ptrFreeBlock =  UNSCALED_POINTER_ADD(ptrFreeBlock,WORD_SIZE);
   return ptrFreeBlock;
 }
@@ -417,19 +418,20 @@ void mm_free (void *ptr) {
   size_t payloadSize;
   BlockInfo * header;
   BlockInfo * followingBlock;
-  BlockInfo * footer;
+ // BlockInfo * footer;
   header = UNSCALED_POINTER_SUB(ptr,WORD_SIZE);
   payloadSize = SIZE(header->sizeAndTags)- WORD_SIZE;
-  header->sizeAndTags &= 0xFFFE;			//set header used bit
-  printf("SIZE: %d\n",SIZE(header->sizeAndTags));
+  header->sizeAndTags &= ~0 << 1;			//set header used bit to unused
+  *((size_t*) UNSCALED_POINTER_ADD(header, payloadSize)) = header->sizeAndTags;
+ // footer = UNSCALED_POINTER_ADD(header,payloadSize);
+ // footer->sizeAndTags = header->sizeAndTags;
   followingBlock = UNSCALED_POINTER_ADD(ptr, payloadSize+WORD_SIZE);
-  footer = UNSCALED_POINTER_ADD(header,payloadSize);
-  footer->sizeAndTags = header->sizeAndTags;
-  followingBlock->sizeAndTags &= 0xFFFD;
+  followingBlock->sizeAndTags &= (~0 <<2)|1;
   insertFreeBlock(header);
   coalesceFreeBlock(header);
-  printf("END OF FREE!\n");
-  examine_heap();
+
+ // printf("END OF FREE!\n");
+ // examine_heap();
 }
 
 
