@@ -472,8 +472,17 @@ void* mm_realloc(void* ptr, size_t size) {
   header = UNSCALED_POINTER_SUB(ptr, WORD_SIZE);
   payloadSize = SIZE(header->sizeAndTags) - WORD_SIZE;
 
+  //if size is 0, realloc acts as free
+  if(size == 0){
+    free(ptr);
+    return NULL;
+  }
+
+  //if ptr is null, realloc acts as malloc
+  else if(ptr == NULL) malloc(size);
+
   //If it is the same as what is allocated
-  if(payloadSize == size) return ptr;
+  else if(payloadSize == size) return ptr;
  
   //If it decreases what is allocated
   else if(payloadSize > size){
@@ -490,9 +499,11 @@ void* mm_realloc(void* ptr, size_t size) {
     secondBlock = UNSCALED_POINTER_ADD(header, payloadSize+WORD_SIZE)
     if(!(secondBlock->sizeAndTags & TAG_USED) && (SIZE(secondBlock->sizeAndTags)+payloadSize)){
       removeFreeBlock(secondBlock);
-      //move new footer to end of requested space
-      while(payloadSize < size){
-        UNSCALED_POINTER_ADD(header, payloadSize)
+//maybe try freeing the original block and coalescing and then mallocing again
+//but problem with keeping data
+//copying byte by byte, maybe, but might be inefficient?       
+      ////move new footer to end of requested space
+      //void* oldFoot =  UNSCALED_POINTER_ADD(header, payloadSize);
       }
     }
    
