@@ -368,7 +368,6 @@ void* mm_malloc (size_t size) {
   if (size == 0) {
     return NULL;
   }
- // printf("SIZE %d\n", size);
   // Add one word for the initial size header.
   // Note that we don't need to boundary tag when the block is used!
   size += WORD_SIZE;
@@ -381,48 +380,41 @@ void* mm_malloc (size_t size) {
     // Round up for correct alignment
     reqSize = ALIGNMENT * ((size + ALIGNMENT - 1) / ALIGNMENT);
   }
-
  
+  //Searches free list for required size and gets more space if needed
   if((ptrFreeBlock = searchFreeList(reqSize)) == NULL){
     requestMoreSpace(reqSize);
     ptrFreeBlock = searchFreeList(reqSize);
   }
-
- // check free block size vs reqSize vs alignment requirements,
- // split if necessary. If split, reformat newly created free
- // block (add header, set bits, add footer).
  
   blockSize = SIZE(ptrFreeBlock->sizeAndTags); 
-   //if the size got is larger than the required size -> break up block into 2 blocks
 
+  //If the size of the free block is larger then then the requested size
+  //Split the free block so only the requested size is allocated 
+  //And push the other part of the block back to the free list
   if(blockSize - reqSize >=MIN_BLOCK_SIZE){
-    secondBlock = (BlockInfo*) UNSCALED_POINTER_ADD(ptrFreeBlock, reqSize);	//starting point of 2nd block
-    blockSize -= reqSize;
-    secondBlock->sizeAndTags = (blockSize) | TAG_PRECEDING_USED;	//set header of 2nd block to correct size and preceding used tag
+    secondBlock = (BlockInfo*) UNSCALED_POINTER_ADD(ptrFreeBlock, reqSize);	
+    secondBlock->sizeAndTags = (blockSize - reqSize) | TAG_PRECEDING_USED;	
     secondBlock->sizeAndTags &= ~0 << 1;
-    *((size_t*) UNSCALED_POINTER_ADD(secondBlock,blockSize - WORD_SIZE))= secondBlock->sizeAndTags;
+    *((size_t*) UNSCALED_POINTER_ADD(secondBlock,blockSize - WORD_SIZE - reqSize))= secondBlock->sizeAndTags;
     insertFreeBlock(secondBlock);
     blockSize = reqSize;
   }
- // if we didnt split, set the next block's preceding tag to 1
+
+ // if the free block is exactly the size of the requested size set the next block's preceding used tag to used
   else{
     *((size_t*) UNSCALED_POINTER_ADD(ptrFreeBlock, SIZE(ptrFreeBlock->sizeAndTags))) |=  TAG_PRECEDING_USED;
   }
+  //remove the allocated block from the free list
   removeFreeBlock(ptrFreeBlock);
+
+  //Set the bits accordingly --> if the preceding block is used or not
   precedingBlockUseTag = ptrFreeBlock->sizeAndTags & TAG_PRECEDING_USED;
- // if the preceding block is used as well, set lower two bits. Else, set only
-       // used bit.
- if ( precedingBlockUseTag ) {
-    ptrFreeBlock->sizeAndTags = blockSize | (TAG_PRECEDING_USED + TAG_USED);
- }
- else {
-    ptrFreeBlock->sizeAndTags = blockSize | TAG_USED;
- }
- // return pointer to block (beginning of payload)
- // if null, return null. else return 8 after start of block (ie skip header,
- // return ptr to payload region)
- if ( ptrFreeBlock == NULL) { return NULL; }
- else { return (void*) UNSCALED_POINTER_ADD(ptrFreeBlock, WORD_SIZE); }
+  if ( precedingBlockUseTag )  ptrFreeBlock->sizeAndTags = blockSize | (TAG_PRECEDING_USED + TAG_USED);
+  else { ptrFreeBlock->sizeAndTags = blockSize | TAG_USED; }
+ 
+  if ( ptrFreeBlock == NULL) { return NULL; }
+  else { return (void*) UNSCALED_POINTER_ADD(ptrFreeBlock, WORD_SIZE); }
   }
 
 ////////////////////////////////////////////////////////////////////
