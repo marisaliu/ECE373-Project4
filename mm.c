@@ -407,7 +407,7 @@ void* mm_malloc (size_t size) {
   if(blockSize - reqSize >=MIN_BLOCK_SIZE){
     secondBlock = UNSCALED_POINTER_ADD(ptrFreeBlock, reqSize);	
     secondBlock->sizeAndTags = (blockSize - reqSize) | TAG_PRECEDING_USED;	
-    secondBlock->sizeAndTags &= ~0 << 1;
+    secondBlock->sizeAndTags &= ~TAG_USED;
     *((size_t*) UNSCALED_POINTER_ADD(secondBlock,blockSize - WORD_SIZE - reqSize))= secondBlock->sizeAndTags;
     insertFreeBlock(secondBlock);
     blockSize = reqSize;
@@ -445,14 +445,15 @@ void mm_free (void *ptr) {
   BlockInfo * followingBlock;
   //skip metadata and set header
   header = UNSCALED_POINTER_SUB(ptr,WORD_SIZE);
+  if(!((header->sizeAndTags)&TAG_USED)) return;
   //calculate actual size of data
   payloadSize = SIZE(header->sizeAndTags) - WORD_SIZE;
-  header->sizeAndTags &= ~0 << 1;			//set header used bit to unused
+  header->sizeAndTags &= ~TAG_USED;			//set header used bit to unused
   //add payloadSize to get to where the footer should be and copy sizeAndTags into footer
   *((size_t*) UNSCALED_POINTER_ADD(header, payloadSize)) = header->sizeAndTags;
   //go to next block's header
-  followingBlock = UNSCALED_POINTER_ADD(ptr, payloadSize+WORD_SIZE);
-  followingBlock->sizeAndTags &= (~0 << 2)|1;		//reset preceding used bit
+  followingBlock = UNSCALED_POINTER_ADD(ptr, payloadSize);//+WORD_SIZE);
+  followingBlock->sizeAndTags &= (~TAG_PRECEDING_USED);		//reset preceding used bit
   //put block back into freelist and then coalesce
   insertFreeBlock(header);
   coalesceFreeBlock(header);
@@ -471,13 +472,13 @@ void* mm_realloc(void* ptr, size_t size) {
   size_t payloadSize;
   header = UNSCALED_POINTER_SUB(ptr, WORD_SIZE);
   payloadSize = SIZE(header->sizeAndTags) - WORD_SIZE;
-  
+// examine_heap(); 
   //If ptr is null malloc acts as realloc 
-  if(ptr == NULL) return malloc(size);
+  if(ptr == NULL) return mm_malloc(size);
 
   //if size is 0, realloc acts as free
   else if(size == 0){
-    free(ptr);
+    mm_free(ptr);
     return NULL;
   }
 
@@ -496,13 +497,13 @@ void* mm_realloc(void* ptr, size_t size) {
 
   //If it increases what is allocated;
   else{
-    void *newPtr = malloc(size);
+    void *newPtr = mm_malloc(size);
     if(newPtr){
        //Copy byte by byte from old ptr to newptr
-      for(int index=2*WORD_SIZE; index<payloadSize-WORD_SIZE; index+=WORD_SIZE){
-	*((size_t*) UNSCALED_POINTER_ADD(newPtr, index)) = *((size_t*) UNSCALED_POINTER_ADD(ptr, index));
+      for(int index=WORD_SIZE; index<payloadSize; index+=WORD_SIZE){
+	*((unsigned int*) UNSCALED_POINTER_ADD(newPtr, index)) = *((unsigned int*) UNSCALED_POINTER_ADD(ptr, index));
       }      
-      free(ptr);
+      mm_free(ptr);
     }
     return newPtr;
   }
