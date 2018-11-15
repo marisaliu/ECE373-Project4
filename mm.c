@@ -450,6 +450,27 @@ int mm_check() {
 
 // Extra credit.
 void* mm_realloc(void* ptr, size_t size) {
-  // ... implementation here ...
+  BlockInfo * header;
+  BlockInfo * secondBlock;
+  size_t payloadSize;
+  header = UNSCALED_POINTER_SUB(ptr, WORD_SIZE);
+  payloadSize = SIZE(header->sizeAndTags);
+
+  //If it is the same as what is allocated
+  if(payloadSize == size) return ptr;
+ 
+  //If it decreases what is allocated
+  else if(payloadSize > size){
+    header->sizeAndTags = size;
+    secondBlock = UNSCALED_POINTER_ADD(header, size);	
+    secondBlock->sizeAndTags = (payloadSize - size) | TAG_PRECEDING_USED;	
+    secondBlock->sizeAndTags &= ~0 << 1;
+    *((size_t*) UNSCALED_POINTER_ADD(secondBlock,payloadSize - WORD_SIZE - size)) = secondBlock->sizeAndTags;
+    insertFreeBlock(secondBlock);
+  }
+
+  //If it increases what is allocated;
+  else{
+  }
   return NULL;
 }
