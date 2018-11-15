@@ -470,7 +470,7 @@ void* mm_realloc(void* ptr, size_t size) {
   BlockInfo * secondBlock;
   size_t payloadSize;
   header = UNSCALED_POINTER_SUB(ptr, WORD_SIZE);
-  payloadSize = SIZE(header->sizeAndTags);
+  payloadSize = SIZE(header->sizeAndTags) - WORD_SIZE;
 
   //If it is the same as what is allocated
   if(payloadSize == size) return ptr;
@@ -487,6 +487,15 @@ void* mm_realloc(void* ptr, size_t size) {
 
   //If it increases what is allocated;
   else{
+    secondBlock = UNSCALED_POINTER_ADD(header, payloadSize+WORD_SIZE)
+    if(!(secondBlock->sizeAndTags & TAG_USED) && (SIZE(secondBlock->sizeAndTags)+payloadSize)){
+      removeFreeBlock(secondBlock);
+      //move new footer to end of requested space
+      while(payloadSize < size){
+        UNSCALED_POINTER_ADD(header, payloadSize)
+      }
+    }
+   
   }
   return NULL;
 }
