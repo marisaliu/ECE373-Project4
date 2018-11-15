@@ -393,7 +393,7 @@ void* mm_malloc (size_t size) {
   //Split the free block so only the requested size is allocated 
   //And push the other part of the block back to the free list
   if(blockSize - reqSize >=MIN_BLOCK_SIZE){
-    secondBlock = (BlockInfo*) UNSCALED_POINTER_ADD(ptrFreeBlock, reqSize);	
+    secondBlock = UNSCALED_POINTER_ADD(ptrFreeBlock, reqSize);	
     secondBlock->sizeAndTags = (blockSize - reqSize) | TAG_PRECEDING_USED;	
     secondBlock->sizeAndTags &= ~0 << 1;
     *((size_t*) UNSCALED_POINTER_ADD(secondBlock,blockSize - WORD_SIZE - reqSize))= secondBlock->sizeAndTags;
@@ -424,12 +424,17 @@ void mm_free (void *ptr) {
   size_t payloadSize;
   BlockInfo * header;
   BlockInfo * followingBlock;
-  header = (BlockInfo*) UNSCALED_POINTER_SUB(ptr,WORD_SIZE);
+  //skip metadata and set header
+  header = UNSCALED_POINTER_SUB(ptr,WORD_SIZE);
+  //calculate actual size of data
   payloadSize = SIZE(header->sizeAndTags) - WORD_SIZE;
   header->sizeAndTags &= ~0 << 1;			//set header used bit to unused
+  //add payloadSize to get to where the foot should be and copy sizeAndTags into footer
   *((size_t*) UNSCALED_POINTER_ADD(header, payloadSize)) = header->sizeAndTags;
-  followingBlock = (BlockInfo*) UNSCALED_POINTER_ADD(ptr, payloadSize+WORD_SIZE);
-  followingBlock->sizeAndTags &= (~0 << 2)|1;
+  //go to next block's header
+  followingBlock = UNSCALED_POINTER_ADD(ptr, payloadSize+WORD_SIZE);
+  followingBlock->sizeAndTags &= (~0 << 2)|1;		//reset preceding used bit
+  //put block back into freelist and then coalesce
   insertFreeBlock(header);
   coalesceFreeBlock(header);
 
