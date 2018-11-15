@@ -500,7 +500,7 @@ void* mm_realloc(void* ptr, size_t size) {
     void *newPtr = mm_malloc(size);
     if(newPtr){
        //Copy byte by byte from old ptr to newptr
-      for(int index=WORD_SIZE; index<payloadSize; index+=WORD_SIZE){
+      for(int index=0; index<payloadSize; index+=WORD_SIZE){
 	*((unsigned int*) UNSCALED_POINTER_ADD(newPtr, index)) = *((unsigned int*) UNSCALED_POINTER_ADD(ptr, index));
       }      
       mm_free(ptr);
