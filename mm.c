@@ -357,7 +357,19 @@ int mm_init () {
 /* Allocate a block of size size and return a pointer to it. *///////////////////////
 /////////////////////////////////////////////////////////////////////////////////////
 
-/* Allocate a block of size size and return a pointer to it. */
+/* 
+malloc takes in a size, then checks to see if it is large enough to hold the
+necessary header block, and then makes sure the size has correct alignment.
+it then searches the free list for a block with enough space. ptrFreeBlock gets
+assigned the address of the block with space equal to or larger than the aligned
+requested size. if the block returned is larger than required, it is split up into
+two blocks: one to malloc, and the other to free. in order to do so, the headers 
+of both blocks must be set accordingly, and are done so using pointer arithmetic.
+if the block returned is equal to the size required, then only one header block is
+updated. the malloc'ed block is then removed from the free list. the preceding
+used bit of the next block must be changed accordingly. the malloc'ed address is
+returned, accounting for metadata.
+*/
 void* mm_malloc (size_t size) {
   size_t reqSize;
   BlockInfo * ptrFreeBlock = NULL;
@@ -420,6 +432,13 @@ void* mm_malloc (size_t size) {
 ////////////////////////////////////////////////////////////////////
 // Free the block referenced by ptr. //////////////////////////////
 ////////////////////////////////////////////////////////////////////
+/*
+free looks for the header of the given pointer using pointer arithmetic,
+then it finds the exact size of the payload of the block from its header,
+resets the used bit, and copies the header to the footer. Then it finds
+the block that follows and resets its preceding used bit before reinserting
+the target block back into the free list and coalescing
+*/
 void mm_free (void *ptr) {
   size_t payloadSize;
   BlockInfo * header;
@@ -429,7 +448,7 @@ void mm_free (void *ptr) {
   //calculate actual size of data
   payloadSize = SIZE(header->sizeAndTags) - WORD_SIZE;
   header->sizeAndTags &= ~0 << 1;			//set header used bit to unused
-  //add payloadSize to get to where the foot should be and copy sizeAndTags into footer
+  //add payloadSize to get to where the footer should be and copy sizeAndTags into footer
   *((size_t*) UNSCALED_POINTER_ADD(header, payloadSize)) = header->sizeAndTags;
   //go to next block's header
   followingBlock = UNSCALED_POINTER_ADD(ptr, payloadSize+WORD_SIZE);
@@ -437,9 +456,6 @@ void mm_free (void *ptr) {
   //put block back into freelist and then coalesce
   insertFreeBlock(header);
   coalesceFreeBlock(header);
-
- // printf("END OF FREE! SIZE: %d\n", payloadSize);
- // examine_heap();
 }
 
 
