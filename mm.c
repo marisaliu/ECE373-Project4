@@ -472,14 +472,14 @@ void* mm_realloc(void* ptr, size_t size) {
   header = UNSCALED_POINTER_SUB(ptr, WORD_SIZE);
   payloadSize = SIZE(header->sizeAndTags) - WORD_SIZE;
 
+  //If ptr is null malloc acts as realloc 
+  if(ptr == NULL) return malloc(size);
+
   //if size is 0, realloc acts as free
-  if(size == 0){
+  else if(size == 0){
     free(ptr);
     return NULL;
   }
-
-  //if ptr is null, realloc acts as malloc
-  else if(ptr == NULL) malloc(size);
 
   //If it is the same as what is allocated
   else if(payloadSize == size) return ptr;
@@ -496,9 +496,15 @@ void* mm_realloc(void* ptr, size_t size) {
 
   //If it increases what is allocated;
   else{
-    secondBlock = UNSCALED_POINTER_ADD(header, payloadSize+WORD_SIZE)
-    if(!(secondBlock->sizeAndTags & TAG_USED) && (SIZE(secondBlock->sizeAndTags)+payloadSize)){
-      removeFreeBlock(secondBlock);
+    void *newPtr = malloc(size);
+    if(ptrNew){
+       //Copy byte by byte from old ptr to newptr
+      free(ptr);
+    }
+    return newPtr;
+   // secondBlock = UNSCALED_POINTER_ADD(header, payloadSize+WORD_SIZE)
+   // if(!(secondBlock->sizeAndTags & TAG_USED) && (SIZE(secondBlock->sizeAndTags)+payloadSize)){
+    //  removeFreeBlock(secondBlock);
 //maybe try freeing the original block and coalescing and then mallocing again
 //but problem with keeping data
 //copying byte by byte, maybe, but might be inefficient?       
