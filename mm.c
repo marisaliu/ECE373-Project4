@@ -1,3 +1,6 @@
+//Marisa  Liu
+//Dylan Banh
+
 /*-------------------------------------------------------------------                             
  * Lab 5 Starter code:                                                                            
  *        single doubly-linked free block list with LIFO policy                                   
@@ -470,9 +473,11 @@ void* mm_realloc(void* ptr, size_t size) {
   BlockInfo * header;
   BlockInfo * secondBlock;
   size_t payloadSize;
+  size_t precedingBlockUseTag;
   header = UNSCALED_POINTER_SUB(ptr, WORD_SIZE);
   payloadSize = SIZE(header->sizeAndTags) - WORD_SIZE;
-// examine_heap(); 
+ 
+  size+= WORD_SIZE;
   //If ptr is null malloc acts as realloc 
   if(ptr == NULL) return mm_malloc(size);
 
@@ -487,13 +492,21 @@ void* mm_realloc(void* ptr, size_t size) {
  
   //If it decreases what is allocated
   else if(payloadSize > size){
-    header->sizeAndTags = size;
-    secondBlock = UNSCALED_POINTER_ADD(header, size);	
+   
+   //Set the bits accordingly --> if the preceding block is used or not
+   secondBlock = UNSCALED_POINTER_ADD(ptr, size );	
     secondBlock->sizeAndTags = (payloadSize - size) | TAG_PRECEDING_USED;	
-    secondBlock->sizeAndTags &= ~0 << 1;
+    secondBlock->sizeAndTags &= ~TAG_USED;
     *((size_t*) UNSCALED_POINTER_ADD(secondBlock,payloadSize - WORD_SIZE - size)) = secondBlock->sizeAndTags;
-    insertFreeBlock(secondBlock);
-  }
+   insertFreeBlock(secondBlock);
+    precedingBlockUseTag = header->sizeAndTags & TAG_PRECEDING_USED;
+  if ( precedingBlockUseTag )  header->sizeAndTags = size | (TAG_PRECEDING_USED + TAG_USED);
+  else { header->sizeAndTags = size | TAG_USED; }
+   // coalesceFreeBlock(secondBlock);
+    return (void*)UNSCALED_POINTER_ADD(header,WORD_SIZE);
+ 
+   // return ptr;
+    }
 
   //If it increases what is allocated;
   else{
